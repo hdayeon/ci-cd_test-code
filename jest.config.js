@@ -7,14 +7,11 @@
 const config = {
   preset: "ts-jest/presets/default-esm", // TypeScript + ESM을 지원하는 프리셋
   testEnvironment: "jsdom", // 테스트 실행 환경 (jsdom)
-  extensionsToTreatAsEsm: [".ts"], // .ts 파일을 ESM으로 처리
   transform: {
     // "^.+\\.tsx?$": ["ts-jest", { useESM: true }], // TypeScript 파일 변환
     "^.+.(ts|tsx|js|jsx)$": "babel-jest",
   },
-  transformIgnorePatterns: [
-    // "node_modules/(?!.*\\.mjs$)", // ESM 모듈 변환
-  ],
+  transformIgnorePatterns: [],
   // All imported modules in your tests should be mocked automatically
   // automock: false,
 
@@ -146,7 +143,7 @@ const config = {
   // setupFiles: [],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
+  // setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.
   // slowTestThreshold: 5,
