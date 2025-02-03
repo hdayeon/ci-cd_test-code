@@ -1,61 +1,92 @@
-import * as React from "react";
+import "@testing-library/jest-dom";
+import { fireEvent, render, screen } from "@testing-library/react";
 import axios from "axios";
+import Login from "./Login";
 
-interface InputElements extends HTMLFormControlsCollection {
-  usernameInput: HTMLInputElement;
-  passwordInput: HTMLInputElement;
-}
+// axios mock에 대한 타입 정의
+jest.mock("axios");
+const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-interface FormElement extends HTMLFormElement {
-  readonly elements: InputElements;
-}
+beforeEach(() => {
+  window.localStorage.removeItem("token");
+});
 
-function Login() {
-  const [state, setState] = React.useState({
-    resolved: false,
-    loading: false,
-    error: null,
+test("allows the user to login successfully", async () => {
+  const fakeUserResponse = { token: "fake_user_token" };
+  const response = { data: fakeUserResponse };
+  mockedAxios.post.mockResolvedValue(response);
+
+  render(<Login />);
+
+  // fill out the form
+  fireEvent.change(screen.getByLabelText(/username/i), {
+    target: { value: "chuck" },
+  });
+  fireEvent.change(screen.getByLabelText(/password/i), {
+    target: { value: "norris" },
   });
 
-  function handleSubmit(event: React.FormEvent<FormElement>) {
-    event.preventDefault();
-    const { usernameInput, passwordInput } = event.currentTarget.elements;
+  fireEvent.click(screen.getByText(/submit/i));
 
-    setState({ loading: true, resolved: false, error: null });
+  // just like a manual tester, we'll instruct our test to wait for the alert
+  // to show up before continuing with our assertions.
+  const alert = await screen.findByRole("alert");
 
-    axios
-      .post("/api/login", {
-        username: usernameInput.value,
-        password: passwordInput.value,
-      })
-      .then((r) => {
-        setState({ loading: false, resolved: true, error: null });
-        window.localStorage.setItem("token", r.data.token);
-      })
-      .catch((error) => {
-        setState({ loading: false, resolved: false, error: error.message });
-      });
-  }
+  // .toHaveTextContent() comes from jest-dom's assertions
+  // otherwise you could use expect(alert.textContent).toMatch(/congrats/i)
+  // but jest-dom will give you better error messages which is why it's recommended
+  expect(alert).toHaveTextContent(/congrats/i);
+  expect(window.localStorage.getItem("token")).toEqual(fakeUserResponse.token);
+});
 
-  return (
-    <div>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="usernameInput">Username</label>
-          <input id="usernameInput" />
-        </div>
-        <div>
-          <label htmlFor="passwordInput">Password</label>
-          <input id="passwordInput" type="password" />
-        </div>
-        <button type="submit">Submit{state.loading ? "..." : null}</button>
-      </form>
-      {state.error ? <div role="alert">{state.error}</div> : null}
-      {state.resolved ? (
-        <div role="alert">Congrats! You&apos;re signed in!</div>
-      ) : null}
-    </div>
-  );
-}
+test("disallows the user when username or password is incorrect", async () => {
+  mockedAxios.post.mockImplementation((url: string, data?: unknown) => {
+    const body = data as { username: string; password: string };
+    if (body.username === "chuck" && body.password === "norris") {
+      const fakeUserResponse = { token: "fake_user_token" };
+      const response = { data: fakeUserResponse };
+      return Promise.resolve(response);
+    } else {
+      return Promise.reject({ message: "Unauthorized", status: 401 });
+    }
+  });
 
-export default Login;
+  render(<Login />);
+
+  // fill out the form
+  fireEvent.change(screen.getByLabelText(/username/i), {
+    target: { value: "invalid username" },
+  });
+  fireEvent.change(screen.getByLabelText(/password/i), {
+    target: { value: "norris" },
+  });
+
+  fireEvent.click(screen.getByText(/submit/i));
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent(/unauthorized/i);
+  expect(window.localStorage.getItem("token")).toBeNull();
+});
+
+test("handles server exceptions", async () => {
+  const response = { message: "Internal server error", status: 500 };
+  mockedAxios.post.mockRejectedValue(response);
+
+  render(<Login />);
+
+  // fill out the form
+  fireEvent.change(screen.getByLabelText(/username/i), {
+    target: { value: "chuck" },
+  });
+  fireEvent.change(screen.getByLabelText(/password/i), {
+    target: { value: "norris" },
+  });
+
+  fireEvent.click(screen.getByText(/submit/i));
+
+  // wait for the error message
+  const alert = await screen.findByRole("alert");
+
+  expect(alert).toHaveTextContent(/internal server error/i);
+  expect(window.localStorage.getItem("token")).toBeNull();
+});
