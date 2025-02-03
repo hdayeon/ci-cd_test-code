@@ -13,7 +13,7 @@ const config = {
     "^.+.(ts|tsx|js|jsx)$": "babel-jest",
   },
   transformIgnorePatterns: [
-    "node_modules/(?!.*\\.mjs$)", // ESM 모듈 변환
+    // "node_modules/(?!.*\\.mjs$)", // ESM 모듈 변환
   ],
   // All imported modules in your tests should be mocked automatically
   // automock: false,
